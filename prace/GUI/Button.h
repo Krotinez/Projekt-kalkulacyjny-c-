@@ -31,10 +31,14 @@ public:
     );
 
     void handleEvent(const sf::Event& event);
+    void setTabActivation(bool value);
     void update(sf::Vector2f mousePos);
     void draw(sf::RenderWindow& window);
 
     bool isActivated();
+
+    void setEnabled(bool enabled);
+    bool isEnabled() const;
 
     // Zaznaczenie używane wyłącznie do nawigacji klawiaturą.
     void setSelected(bool selected);
@@ -62,6 +66,8 @@ private:
     bool activated = false;
     bool mousePressed = false;
     bool enterPressed = false;
+    bool enabled = true;
+    bool tabActivates = false;
 
     void updateColors();
 };

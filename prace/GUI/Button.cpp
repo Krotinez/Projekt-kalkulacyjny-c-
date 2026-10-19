@@ -70,6 +70,16 @@ Button::Button(
 
 void Button::updateColors()
 {
+    if (!enabled)
+    {
+        shape.setFillColor(sf::Color(40, 40, 40));
+        shape.setOutlineThickness(0.f);
+        text.setFillColor(sf::Color(100, 100, 100));
+        return;
+    }
+
+    text.setFillColor(sf::Color::White);
+
     if ((mousePressed && isHoveredState) || enterPressed)
     {
         shape.setFillColor(sf::Color(160, 160, 160));
@@ -100,6 +110,27 @@ void Button::setSelected(bool selected)
     updateColors();
 }
 
+void Button::setEnabled(bool value)
+{
+    enabled = value;
+
+    if (!enabled)
+    {
+        activated = false;
+        mousePressed = false;
+        enterPressed = false;
+        isHoveredState = false;
+        isSelectedState = false;
+    }
+
+    updateColors();
+}
+
+bool Button::isEnabled() const
+{
+    return enabled;
+}
+
 bool Button::isSelected() const
 {
     return isSelectedState;
@@ -120,8 +151,18 @@ bool Button::isHovered() const
     return isHoveredState;
 }
 
+void Button::setTabActivation(bool value)
+{
+    tabActivates = value;
+}
+
 void Button::handleEvent(const sf::Event& event)
 {
+    if (!enabled)
+    {
+        return;
+    }
+
     if (event.is<sf::Event::MouseButtonPressed>())
     {
         const auto* mouseEvent =
@@ -177,7 +218,8 @@ void Button::handleEvent(const sf::Event& event)
 
         if (isSelectedState &&
             (keyEvent->code == sf::Keyboard::Key::Enter ||
-            keyEvent->code == sf::Keyboard::Key::Space))
+            keyEvent->code == sf::Keyboard::Key::Space ||
+            (tabActivates && keyEvent->code == sf::Keyboard::Key::Tab)))
         {
             activated = true;
             enterPressed = true;
@@ -191,7 +233,8 @@ void Button::handleEvent(const sf::Event& event)
             event.getIf<sf::Event::KeyReleased>();
 
         if (keyEvent->code == sf::Keyboard::Key::Enter ||
-            keyEvent->code == sf::Keyboard::Key::Space)
+            keyEvent->code == sf::Keyboard::Key::Space ||
+            (tabActivates && keyEvent->code == sf::Keyboard::Key::Tab))
         {
             enterPressed = false;
             updateColors();
@@ -201,7 +244,7 @@ void Button::handleEvent(const sf::Event& event)
 
 void Button::update(sf::Vector2f mousePos)
 {
-    bool hovered = shape.getGlobalBounds().contains(mousePos);
+    bool hovered = enabled && shape.getGlobalBounds().contains(mousePos);
 
     if (hovered != isHoveredState)
     {
