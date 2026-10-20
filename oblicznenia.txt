@@ -1,0 +1,106 @@
+dal a, b, c ∈ R
+a+b=c
+a+b=b+a
+(a+b)+c=a+(b+c)
+a+0=a
+a+b=c⟺a=c−b
+a+b=c⟺b=c−a
+
+a−b=c
+a−b≠b−a, a≠b
+a−b=c⟺a=b+c
+a−b=c⟺a=b+c
+a−b=c⟺c=a−b
+a−a=0
+
+a⋅b=c
+a⋅b=ab
+ab=ba
+(ab)c=a(bc)
+a(b+c)=ab+ac
+a⋅1=a
+a⋅0=0
+a⋅n=a+a+a..+a }n skałdników (gdzie ilość "a" jest równa "n")
+
+Dla n ∈ N⁺
+ab=c⟺a=c/b, b≠0
+ab=c⟺b=c/a, a≠0
+
+a/b=c, b≠0
+a/a=1, a≠0
+a/1=a
+0/a=0, a≠0
+a/b=(a/b)(c/c)=(a⋅c)/(b⋅c), b≠0, c≠0
+a/b=c⟺a=bc, b≠0
+a/b=c⟺b=a/c, c≠0, b≠0
+
+Dla a ∈ R i n ∈ N⁺
+aⁿ=a⋅a⋅a...⋅a }n skałdników (gdzie ilość "a" jest równa "n")
+a¹=a
+a⁰=1, a≠0
+a⁻ⁿ=1/aⁿ, a≠0
+aᵐ⋅aⁿ=aᵐ⁺ⁿ
+aⁿ/aᵐ=aⁿ⁻ᵐ
+(aᵐ)ⁿ=aᵐⁿ
+(ab)ⁿ=aⁿbⁿ
+(a/b)ⁿ=aⁿ/b, b≠0
+
+dal liczb rzeczywistych
+a ∈ N⁺
+gdzie n jest parzyste, a ≥ 0
+gdzie n jest nieparzyste, a ∈ R
+ⁿ√a=a⁽1/n⁾
+√a=a⁽1/2⁾
+³√a=a⁽1/3⁾
+ⁿ√aᵐ=a⁽m/n⁾
+ⁿ√aᵐ={|a|, n parzyste {a, n parzyste
+
+Dla n ∈ N⁺
+n!=1⋅2⋅3⋅…⋅n
+0!=1
+n!=n⋅(n−1)!
+
+Dla a, p ∈ R
+1%=1/100=0,01
+p%=p/100=0,01p
+p% z a=(p/100)*a=0,01pa
+(a/b)*100%, b≠0
+p=(a/b)*100%, b≠0
+x=(100a/p), p≠0
+a(1+[p/100])
+a(1-[p/100])
+([b-a]/a)*100%, a≠0
+a/b=(a/b)*100%, b≠0
+a(1+[p/100])(1+[p/100])
+a(1-[p/100])(1-[p/100])
+
+1‰=1/1000=0,001
+p‰=p/1000=0,001p
+p‰ z a=(p/1000)*a=0,001pa
+(a/b)*1000‰, b≠0
+p=(a/b)*1000‰, b≠0
+x=(1000a/p), p≠0
+a(1+[p/1000])
+a(1-[p/1000])
+([b-a]/a)*1000‰, a≠0
+a/b=(a/b)*1000‰, b≠0
+a(1+[p/1000])(1+[p/1000])
+a(1-[p/1000])(1-[p/1000])
+1%=10‰
+1‰=0,1%
+p%=10p‰
+p‰=(p/10)%
+
+dla a<0, a≠1, b>0
+logₐb=c⟺aᶜ=b
+logₐ1=0, a⁰=1
+logₐa=1, a¹=a
+logb⟺log₁₀b
+logₐ(aⁿ)=ⁿ
+a⁽logₐx⁾=x
+logₐ(xy)=logₐx+logₐy
+logₐ(xⁿ)=nlogₐx
+logₐⁿ√x=(1/n)logₐx, x>0
+Dla c>0, c≠1
+logₐb=(logₔb)/(logₔa)
+logₐb=1/(log₈a)
