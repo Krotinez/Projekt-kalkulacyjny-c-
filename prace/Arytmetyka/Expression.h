@@ -11,6 +11,7 @@ public:
     void removeLast();
     void deleteForward();
     void clear();
+    void replaceForBaseConversion(const std::string& text, std::size_t cursor, std::size_t anchor);
     std::string get() const;
     std::size_t cursor() const { return caret; }
     std::size_t selectionStart() const { return anchor < caret ? anchor : caret; }

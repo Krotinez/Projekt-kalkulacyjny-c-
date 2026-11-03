@@ -2,6 +2,16 @@
 #include <SFML/Window/Clipboard.hpp>
 #include <algorithm>
 
+namespace {
+char32_t ghostFor(char32_t c) {
+    switch(c) { case U'(': return U'\uE130'; case U'[': return U'\uE131'; case U'{': return U'\uE132'; case U'<': return U'\uE133'; default: return 0; }
+}
+char32_t realFor(char32_t c) {
+    switch(c) { case U')': return U'\uE130'; case U']': return U'\uE131'; case U'}': return U'\uE132'; case U'>': return U'\uE133'; default: return 0; }
+}
+}
+
+
 bool Expression::isWord(char32_t c) {
     return (c >= U'0' && c <= U'9') || (c >= U'A' && c <= U'Z') ||
            (c >= U'a' && c <= U'z') || c == U',' || c == U'.';
@@ -21,6 +31,55 @@ void Expression::add(const std::string& text) {
     sf::String inserted = sf::String::fromUtf8(text.begin(), text.end());
     if (inserted.isEmpty()) return;
     save(); eraseSelection();
+    // Reguly wpisywania operatorow i przecinka dotycza pojedynczych znakow.
+    if (inserted.getSize() == 1) {
+        const char32_t c = inserted[0];
+        const auto isOperator = [](char32_t ch) {
+            return ch == U'+' || ch == U'-' || ch == U'*' || ch == U'/' ||
+                   ch == U'×' || ch == U'÷';
+        };
+        const bool atStart = caret == 0 || value[caret - 1] == U'\n' ||
+                             value[caret - 1] == U'(' || value[caret - 1] == U'[' ||
+                             value[caret - 1] == U'{';
+        if (c == U',' || c == U'.') {
+            if (atStart || (caret > 0 && isOperator(value[caret - 1]))) {
+                value.insert(caret, sf::String("0")); ++caret;
+            }
+        } else if (isOperator(c)) {
+            if (caret > 0 && isOperator(value[caret - 1])) {
+                value.erase(caret - 1, 1); --caret;
+            } else if (atStart && c != U'+' && c != U'-') {
+                value.insert(caret, sf::String("0")); ++caret;
+            }
+        }
+    }
+    if (inserted.getSize() == 1) {
+        const char32_t c = inserted[0];
+        const char32_t ghost = ghostFor(c);
+        if (ghost) {
+            value.insert(caret, sf::String(c));
+            value.insert(caret + 1, sf::String(ghost));
+            ++caret; anchor = caret;
+            return;
+        }
+        const char32_t matchingGhost = realFor(c);
+        if (matchingGhost) {
+            // Zamykamy najblizszy pasujacy widmowy nawias, ale tylko
+            // gdy po drodze nie ma innego, jeszcze niezamknietego nawiasu.
+            std::size_t match = value.getSize();
+            for (std::size_t i = caret; i < value.getSize(); ++i) {
+                if (value[i] == matchingGhost) { match = i; break; }
+                if (value[i] == U'\uE130' || value[i] == U'\uE131' ||
+                    value[i] == U'\uE132' || value[i] == U'\uE133') break;
+            }
+            if (match < value.getSize()) {
+                value.erase(match, 1);
+                value.insert(caret, sf::String(c));
+                ++caret; anchor = caret;
+                return;
+            }
+        }
+    }
     value.insert(caret, inserted);
     caret += inserted.getSize(); anchor = caret;
 }
@@ -35,6 +94,14 @@ void Expression::deleteForward() {
     save();
     if (hasSelection()) eraseSelection();
     else value.erase(caret, 1);
+}
+void Expression::replaceForBaseConversion(const std::string& text, std::size_t newCursor, std::size_t newAnchor) {
+    const auto converted=sf::String::fromUtf8(text.begin(),text.end());
+    if(converted==value) return;
+    save();
+    value=converted;
+    caret=std::min(newCursor,value.getSize());
+    anchor=std::min(newAnchor,value.getSize());
 }
 void Expression::clear() {
     if (value.isEmpty()) return;

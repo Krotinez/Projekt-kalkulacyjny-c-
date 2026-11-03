@@ -84,6 +84,8 @@ ArithmeticButtons createArithmeticButtons(sf::Font& font, sf::Font& mathFont)
             d.action = "DIVIDE";
         else if (d.label == "√")
             d.action = "ROOT";
+        else if (d.label == "log")
+            d.action = "LOG";
         else if (d.label == "1/2")
             d.action = "FRACTION";
         else if (d.label == "BIN")
