@@ -1,0 +1,77 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Kompiluj program",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-std=c++17",
+                "start.cpp",
+                "main_menu.cpp",
+                "Arytmetyka/ArithmeticOperations.cpp",
+                "Arytmetyka/Arytmetyka.cpp",
+                "Arytmetyka/Expression.cpp",
+                "Arytmetyka/ExpressionCalculator.cpp",
+                "Arytmetyka/NumberFormatting.cpp",
+                "Arytmetyka/NumericLiteral.cpp",
+                "Arytmetyka/ArithmeticUI.cpp",
+                "Arytmetyka/NavigationRules.cpp",
+                "Arytmetyka/ExpressionKeyHandler.cpp",
+                "Arytmetyka/ExpressionTextHandler.cpp",
+                "Arytmetyka/ArithmeticButtonHandler.cpp",
+                "Arytmetyka/ArithmeticFrame.cpp",
+                "Arytmetyka/MouseSelectionHandler.cpp",
+                "Arytmetyka/ButtonFocusHandler.cpp",
+                "Arytmetyka/StepExpressionParser.cpp",
+                "Arytmetyka/StepReduction.cpp",
+                "Arytmetyka/CalculationSteps.cpp",
+                "Arytmetyka/StepHighlightMapping.cpp",
+                "Arytmetyka/ArithmeticButtons.cpp",
+                "Algebra/Algebra.cpp",
+                "Geometria/Geometria.cpp",
+                "GUI/Button.cpp",
+                "GUI/ExpressionLayout.cpp",
+                "GUI/ExpressionView.cpp",
+                "GUI/PowerVisual.cpp",
+                "GUI/FractionVisual.cpp",
+                "GUI/RootVisual.cpp",
+                "GUI/LogVisual.cpp",
+                "GUI/LogModel.cpp",
+                "GUI/RootModel.cpp",
+                "GUI/FractionModel.cpp",
+                "GUI/ExpressionScroll.cpp",
+                "GUI/ButtonNavigation.cpp",
+                "GUI/ExpressionPanel.cpp",
+                "-o",
+                "start.exe",
+                "-IC:\\msys64\\ucrt64\\include",
+                "-LC:\\msys64\\ucrt64\\lib",
+                "-lsfml-graphics",
+                "-lsfml-window",
+                "-lsfml-system"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Uruchom program",
+            "type": "shell",
+            "command": ".\\start.exe",
+            "dependsOn": "Kompiluj program",
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}
