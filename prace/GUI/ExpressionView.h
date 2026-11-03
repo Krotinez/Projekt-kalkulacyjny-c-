@@ -29,3 +29,8 @@ sf::View createExpressionView(
     const sf::RenderWindow& window,
     const sf::FloatRect& area
 );
+
+// Pozycje kursora w pikselach wzgledem poczatku wiersza.
+// Y to wysokosc gornego brzegu kursora (wzgledem y wiersza).
+std::vector<sf::Vector2f> fractionCaretPositions(
+    const std::string& line, const sf::Font& font, unsigned size = 28);

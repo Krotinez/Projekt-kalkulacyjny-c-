@@ -78,7 +78,8 @@ void Button::updateColors()
         return;
     }
 
-    text.setFillColor(sf::Color::White);
+    text.setFillColor(modeActive ? sf::Color(255, 225, 120) : sf::Color::White);
+    text.setStyle(modeActive ? sf::Text::Bold : sf::Text::Regular);
 
     if ((mousePressed && isHoveredState) || enterPressed)
     {
@@ -102,6 +103,12 @@ void Button::updateColors()
     {
         shape.setOutlineThickness(0.f);
     }
+}
+
+void Button::setModeActive(bool active)
+{
+    modeActive=active;
+    updateColors();
 }
 
 void Button::setSelected(bool selected)

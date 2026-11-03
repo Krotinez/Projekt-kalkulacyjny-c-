@@ -1,5 +1,9 @@
 #include "ExpressionPanel.h"
 #include "ExpressionView.h"
+#include "PowerVisual.h"
+#include "FractionModel.h"
+#include "RootModel.h"
+#include "LogModel.h"
 #include <algorithm>
 #include <cmath>
 
@@ -72,18 +76,27 @@ void ExpressionPanel::setWrapSideFromClick(sf::Vector2f pos, const std::string& 
 }
 float ExpressionPanel::cursorX(const VisualLine& row, std::size_t cursor) const
 {
-    sf::Text probe(font, sf::String::fromUtf8(row.text.begin(), row.text.end()), 28);
+    std::string display = row.text;
+    for (char& c : display) if (c == '<' || c == '>') c = '|';
+    sf::Text probe(font, sf::String::fromUtf8(display.begin(), display.end()), 28);
     const auto len = row.end - row.start;
+    if (row.text.find('^') != std::string::npos) {
+        const auto visual=makePowerVisual(row.text,font,28);
+        return visual.x[std::min(len,cursor>row.start?cursor-row.start:std::size_t{0})];
+    }
     return probe.findCharacterPos(std::min(len, cursor > row.start ? cursor - row.start : std::size_t{0})).x;
 }
 std::size_t ExpressionPanel::cursorAtX(const VisualLine& row, float x) const
 {
-    sf::Text probe(font, sf::String::fromUtf8(row.text.begin(), row.text.end()), 28);
+    std::string display = row.text;
+    for (char& c : display) if (c == '<' || c == '>') c = '|';
+    sf::Text probe(font, sf::String::fromUtf8(display.begin(), display.end()), 28);
     float best = 1e30f;
     std::size_t nearest = 0;
     for (std::size_t i = 0; i <= row.end - row.start; ++i)
     {
-        const float d = std::abs(probe.findCharacterPos(i).x - x);
+        const float px = row.text.find('^') != std::string::npos ? makePowerVisual(row.text,font,28).x[i] : probe.findCharacterPos(i).x;
+        const float d = std::abs(px - x);
         if (d < best) { best = d; nearest = i; }
     }
     return row.start + nearest;
@@ -102,6 +115,33 @@ std::size_t ExpressionPanel::lineBoundary(const std::string& expression, std::si
     const auto& row = rows[rowForCursor(rows, cursor)];
     return end ? row.end : row.start;
 }
+
+int ExpressionPanel::powerEndDepth(const std::string& expression, std::size_t cursor) const
+{
+    int count = 0;
+    const auto rows = visualLines(expression);
+    for (const auto& row : rows) {
+        if (cursor < row.start || cursor > row.end) continue;
+        const auto visual = makePowerVisual(row.text, font, 28);
+        for (const auto& exponent : visual.exponents)
+            if (row.start + exponent.end == cursor && exponent.end > exponent.start) ++count;
+    }
+    return count;
+}
+
+bool ExpressionPanel::isPowerEnd(const std::string& expression, std::size_t cursor) const
+{
+    const auto rows = visualLines(expression);
+    for (const auto& row : rows) {
+        if (cursor < row.start || cursor > row.end) continue;
+        const auto visual = makePowerVisual(row.text, font, 28);
+        for (const auto& exponent : visual.exponents)
+            if (row.start + exponent.end == cursor && exponent.end > exponent.start)
+                return true;
+    }
+    return false;
+}
+
 void ExpressionPanel::ensureCursorVisible(const std::string& expression, std::size_t cursor)
 {
     const auto rows = visualLines(expression);
@@ -128,6 +168,12 @@ float ExpressionPanel::maxY(std::size_t count) const
 float ExpressionPanel::maxX(const std::vector<std::string>& wrapped) const
 {
     return calculateMaxScrollX(calculateContentWidth(wrapped, font), box.getSize().x - 2.f * padding);
+}
+void ExpressionPanel::scrollToBottom(const std::string& expression)
+{
+    const auto wrapped = lines(expression);
+    scroll.offsetY = maxY(wrapped.size());
+    scroll.offsetX = 0.f;
 }
 void ExpressionPanel::resetScroll()
 {
@@ -214,11 +260,29 @@ std::size_t ExpressionPanel::cursorAt(sf::Vector2f pos, const std::string& expre
     const int index = std::clamp(static_cast<int>(std::floor(
         (pos.y - box.getPosition().y - padding + scroll.offsetY) / lineHeight)),
         0, static_cast<int>(rows.size()) - 1);
-    return cursorAtX(rows[index], pos.x - box.getPosition().x - padding + scroll.offsetX);
+    const auto& row = rows[index];
+    const float localX = pos.x - box.getPosition().x - padding + scroll.offsetX;
+    const float localY = pos.y - box.getPosition().y - padding + scroll.offsetY - index * lineHeight;
+    if (row.text.find('^') == std::string::npos)
+        return cursorAtX(row, localX);
+
+    // Indeksy gorne sa na innej wysokosci niz podstawa. Wybieramy
+    // najblizsza dwuwymiarowo pozycje edycji, a nie tylko najblizsze X.
+    const auto visual = makePowerVisual(row.text, font, 28);
+    const auto count = row.end - row.start;
+    std::size_t nearest = 0;
+    float best = 1e30f;
+    for (std::size_t i = 0; i <= count; ++i) {
+        const float dx = visual.x[i] - localX;
+        const float dy = (14.f - visual.caretRise[i]) - localY;
+        const float distance = dx * dx + dy * dy;
+        if (distance < best) { best = distance; nearest = i; }
+    }
+    return row.start + nearest;
 }
 
 void ExpressionPanel::drawEditor(sf::RenderWindow& window, const std::string& expression,
-    std::size_t cursor, std::size_t selectionStart, std::size_t selectionEnd, bool active)
+    std::size_t cursor, std::size_t selectionStart, std::size_t selectionEnd, bool active, bool drawCaret)
 {
     if (!active) return;
     const auto rows = visualLines(expression);
@@ -239,12 +303,212 @@ void ExpressionPanel::drawEditor(sf::RenderWindow& window, const std::string& ex
             highlight.setFillColor(sf::Color(50, 110, 210, 130));
             window.draw(highlight);
         }
-        if (index == cursorRow)
+        // Edytowalne pole wykladnika: aktywne jest niebieskie,
+        // a puste pozostaje widoczne jako miejsce do wpisywania.
+        PowerVisual power = makePowerVisual(row.text, font, 28);
+        for (const auto& exponent : power.exponents)
         {
-            sf::RectangleShape caretShape({2.f, 30.f});
-            caretShape.setPosition({x + cursorX(row, cursor), y});
+            const bool empty = exponent.start == exponent.end;
+            const std::size_t begin = row.start + exponent.start;
+            const std::size_t end = row.start + exponent.end;
+            const bool focused = index == cursorRow && cursor >= begin && cursor <= end && !(cursor == end && powerExitLevel > 0);
+            // Puste pole pozostaje widoczne; wypelnione tylko podczas edycji.
+            const float left = x + power.x[exponent.start] - 3.f;
+            const float width = empty ? 18.f : std::max(18.f, power.x[exponent.end] - power.x[exponent.start] + 6.f);
+            const float rise = exponent.level == 2 ? 22.f : 12.f;
+            const float height = exponent.level == 2 ? 23.f : 30.f;
+            if (!empty && !(focused && drawCaret)) continue;
+            sf::RectangleShape frame({width, height});
+            frame.setPosition({left, y - rise - 2.f});
+            frame.setFillColor(sf::Color::Transparent);
+            frame.setOutlineThickness(1.f);
+            frame.setOutlineColor(sf::Color(185, 185, 185));
+            window.draw(frame);
+        }
+        if (drawCaret && index == cursorRow)
+        {
+            const std::size_t local = std::min(cursor > row.start ? cursor-row.start : std::size_t{0}, power.caretRise.size()-1);
+            sf::RectangleShape caretShape({2.f, power.caretRise[local] > 0.f && !(powerExitLevel > 0 && isPowerEnd(expression, cursor)) ? 22.f : 30.f});
+            caretShape.setPosition({x + cursorX(row, cursor), y - ((powerExitLevel > 0 && isPowerEnd(expression, cursor)) ?
+                (powerExitLevel >= powerEndDepth(expression, cursor) ? 0.f : 12.f) : power.caretRise[local])});
+            if (!FractionModel::spans(row.text).empty() || row.text.find(RootModel::emptyRoot().substr(0,3)) != std::string::npos || row.text.find(LogModel::emptyLog().substr(0,3)) != std::string::npos) {
+                const auto positions = fractionCaretPositions(row.text, font, 28);
+                if (local < positions.size()) {
+                    caretShape.setPosition({x + positions[local].x, y + positions[local].y});
+                    caretShape.setSize({2.f, (RootModel::inDegree(row.text, local) || LogModel::inBase(row.text, local)) ? 15.f : 24.f});
+                }
+            }
             caretShape.setFillColor(sf::Color::White);
             window.draw(caretShape);
+        }
+    }
+    window.setView(previous);
+}
+
+void ExpressionPanel::drawHighlights(sf::RenderWindow& window, const std::string& displayed,
+    const std::vector<ExpressionHighlight>& highlights)
+{
+    if (highlights.empty()) return;
+    const auto rows=visualLines(displayed);
+    const sf::View previous=window.getView();
+    window.setView(createExpressionView(window,{box.getPosition(),box.getSize()}));
+    // Draw the blue underlay first, then the opaque green/red overlays.
+    for(int layer=0;layer<2;++layer) for(const auto& h:highlights) {
+        if(static_cast<int>(h.result || h.error)!=layer) continue;
+        for(std::size_t i=0;i<rows.size();++i) {
+            const auto& row=rows[i];
+            if(h.start>=row.end || h.end<=row.start) continue;
+            const auto a=std::max(row.start,h.start), b=std::min(row.end,h.end);
+            const float x=box.getPosition().x+padding-scroll.offsetX;
+            const float y=box.getPosition().y+padding+i*lineHeight-scroll.offsetY;
+            const sf::Color color = h.error ? sf::Color(210,55,55,230) :
+                h.result ? sf::Color(165,220,40,190) : sf::Color(45,110,220,115);
+            const float inset = h.result ? 4.f : 0.f;
+            // Superscripts are drawn above the baseline and at a smaller size.
+            // Split the highlighted range at each change of visual level so
+            // that a selection follows the glyphs instead of covering one
+            // full-height rectangle across the entire expression.
+            const bool hasStructures = row.text.find("\xEE\x84") != std::string::npos;
+            // Structured layout owns horizontal positions when both graphical
+            // structures and superscripts occur in the same expression.
+            // A plain PowerVisual has no knowledge of fraction/root/log markers.
+            if (!hasStructures && row.text.find('^') != std::string::npos) {
+                const PowerVisual power = makePowerVisual(row.text,font,28);
+                const std::size_t first = a - row.start;
+                const std::size_t last = b - row.start;
+                std::size_t begin = first;
+                while (begin < last) {
+                    const float rise = power.rise[begin];
+                    const unsigned size = power.size[begin];
+                    std::size_t end = begin + 1;
+                    while (end < last && power.rise[end] == rise && power.size[end] == size)
+                        ++end;
+                    // '^' itself has zero width in PowerVisual, so ranges
+                    // containing it cannot introduce an extra visible bar.
+                    const float width = std::max(0.f,power.x[end]-power.x[begin]);
+                    if (width > 0.f) {
+                        const float height = rise == 0.f ? 32.f :
+                            (rise >= 22.f ? 19.f : 24.f);
+                        const float localInset = std::min(inset,height/4.f);
+                        sf::RectangleShape mark({width,height-2.f*localInset});
+                        mark.setPosition({x+power.x[begin],y-rise+localInset});
+                        mark.setFillColor(color);
+                        window.draw(mark);
+                    }
+                    begin = end;
+                }
+            } else if (hasStructures) {
+                // Structured fractions, roots and logarithms have glyphs at
+                // different heights. Use the same layout coordinates as the
+                // text caret instead of a single full-height rectangle.
+                const sf::String chars = sf::String::fromUtf8(row.text.begin(), row.text.end());
+                const auto positions = fractionCaretPositions(row.text, font, 28);
+                const auto fractions = FractionModel::spans(row.text);
+                const bool hasPowers = row.text.find('^') != std::string::npos;
+                const PowerVisual power = hasPowers ? makePowerVisual(row.text, font, 28) : PowerVisual{};
+                const std::size_t first = a - row.start;
+                const std::size_t last = std::min(b - row.start, chars.getSize());
+                // Include the non-text parts of a fully selected structure.
+                // The editor stores these as invisible Unicode markers; their
+                // visible symbols need their own highlight geometry.
+                struct Structure { char32_t kind; std::size_t begin; std::size_t separator; };
+                std::vector<Structure> openStructures;
+                for (std::size_t j = 0; j < chars.getSize(); ++j) {
+                    const char32_t ch = chars[j];
+                    if (ch == FractionModel::Begin || ch == RootModel::Begin || ch == LogModel::Begin) {
+                        openStructures.push_back({ch, j, chars.getSize()});
+                        continue;
+                    }
+                    if (openStructures.empty()) continue;
+                    auto& current = openStructures.back();
+                    const char32_t separator = current.kind == FractionModel::Begin ? FractionModel::Separator :
+                        current.kind == RootModel::Begin ? RootModel::Separator : LogModel::Separator;
+                    const char32_t ending = current.kind == FractionModel::Begin ? FractionModel::End :
+                        current.kind == RootModel::Begin ? RootModel::End : LogModel::End;
+                    // A nested structure owns its own separator. Never let a
+                    // separator or closing marker from another level change
+                    // the boundaries of the current (innermost) structure.
+                    if (ch == separator && current.separator == chars.getSize())
+                        current.separator = j;
+                    if (ch != ending) continue;
+                    const auto structure = current;
+                    openStructures.pop_back();
+                    if (structure.begin < first || j >= last ||
+                        structure.separator >= chars.getSize() ||
+                        structure.separator <= structure.begin ||
+                        structure.separator >= j ||
+                        structure.begin + 1 >= positions.size() ||
+                        structure.separator + 1 >= positions.size() ||
+                        j + 1 >= positions.size()) continue;
+                    const float left = positions[structure.begin].x;
+                    const float right = positions[j+1].x;
+                    float markLeft = left, markTop = 0.f, markWidth = 0.f, markHeight = 0.f;
+                    if (structure.kind == FractionModel::Begin) {
+                        // Fraction bar is drawn at baseline - size * 0.2.
+                        markTop = 26.f - 28.f * 0.2f;
+                        markWidth = right - left;
+                        markHeight = 3.f;
+                    } else if (structure.kind == LogModel::Begin) {
+                        // The label 'log' precedes the small base field.
+                        markWidth = positions[structure.begin+1].x - left;
+                        markTop = positions[structure.begin].y;
+                        markHeight = 30.f;
+                    } else {
+                        // Radical hook and overbar occupy the region before
+                        // the radicand; highlight the symbol, not empty space.
+                        markWidth = positions[structure.separator+1].x - left;
+                        markTop = positions[structure.separator+1].y - 8.f;
+                        markHeight = 34.f;
+                    }
+                    if (markWidth <= 0.f) continue;
+                    const float localInset = std::min(inset, markHeight / 4.f);
+                    sf::RectangleShape symbolMark({markWidth, markHeight - 2.f * localInset});
+                    symbolMark.setPosition({x + markLeft, y + markTop + localInset});
+                    symbolMark.setFillColor(color);
+                    window.draw(symbolMark);
+                }
+                for (std::size_t j = first; j < last && j + 1 < positions.size(); ++j) {
+                    const char32_t ch = chars[j];
+                    const bool structural = ch == FractionModel::Begin || ch == FractionModel::Separator ||
+                        ch == FractionModel::End || ch == RootModel::Begin ||
+                        ch == RootModel::Separator || ch == RootModel::End ||
+                        ch == LogModel::Begin || ch == LogModel::Separator || ch == LogModel::End;
+                    if (structural) continue;
+                    unsigned glyphSize = 28;
+                    for (const auto& span : fractions)
+                        if ((j > span.begin && j < span.separator) ||
+                            (j > span.separator && j < span.end))
+                            glyphSize = std::max(12u, 28u * 3 / 4);
+                    if (RootModel::inDegree(row.text, j) || LogModel::inBase(row.text, j))
+                        glyphSize = std::max(12u, 28u * 55 / 100);
+                    // In mixed expressions, preserve the structured caret's X/Y
+                    // while following the superscript's smaller glyph height.
+                    // '^' has no visible glyph and must never receive a mark.
+                    if (hasPowers) {
+                        if (ch == U'^') continue;
+                        glyphSize = std::min(glyphSize, power.size[j]);
+                    }
+                    const float advance = font.getGlyph(ch == U'<' || ch == U'>' ? U'|' : ch,
+                        glyphSize, false).advance;
+                    const float width = std::min(advance,
+                        std::max(0.f, positions[j+1].x - positions[j].x));
+                    if (width <= 0.f) continue;
+                    const float height = static_cast<float>(glyphSize) + 4.f;
+                    const float localInset = std::min(inset, height / 4.f);
+                    sf::RectangleShape mark({width, height - 2.f * localInset});
+                    const float exponentRise = hasPowers ? power.rise[j] : 0.f;
+                    mark.setPosition({x + positions[j].x,
+                        y + positions[j].y - exponentRise + localInset});
+                    mark.setFillColor(color);
+                    window.draw(mark);
+                }
+            } else {
+                const float x1=cursorX(row,a),x2=cursorX(row,b);
+                sf::RectangleShape mark({std::max(0.f,x2-x1),32.f-2.f*inset});
+                mark.setPosition({x+x1,y+inset});
+                mark.setFillColor(color);
+                window.draw(mark);
+            }
         }
     }
     window.setView(previous);

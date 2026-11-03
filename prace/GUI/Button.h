@@ -42,6 +42,7 @@ public:
 
     // Zaznaczenie używane wyłącznie do nawigacji klawiaturą.
     void setSelected(bool selected);
+    void setModeActive(bool active);
     bool isSelected() const;
 
     // Zachowane jako alias dla kodu, który używał wcześniej nazwy "Focused".
@@ -63,6 +64,7 @@ private:
 
     bool isHoveredState = false;
     bool isSelectedState = false;
+    bool modeActive = false;
     bool activated = false;
     bool mousePressed = false;
     bool enterPressed = false;
