@@ -8,6 +8,8 @@ constexpr char32_t End = U'\uE112';
 std::string emptyRoot();
 // Navigation between the small degree field and the radicand.
 // Cursor offsets are Unicode code point offsets, not UTF-8 bytes.
+bool verticalFieldCursor(const std::string& expression, std::size_t cursor,
+                         bool down, std::size_t& target);
 bool horizontalFieldCursor(const std::string& expression, std::size_t cursor,
                            bool right, std::size_t& target);
 bool inDegree(const std::string& expression, std::size_t cursor);

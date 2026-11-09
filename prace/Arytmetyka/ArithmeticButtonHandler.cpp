@@ -154,7 +154,12 @@ ButtonActionResult handleArithmeticButton(const std::string& action,
                         expressionPanel.scrollToBottom(displayedExpression());
                         return ButtonActionResult::SkipFrame;
                     }
-                    const bool containsFractions = arithmeticInput != expression.get();
+                    // Only graphical fractions need their own source-to-parser mapping.
+                    // Root/log conversion also changes the parser text, but must
+                    // not disable all K-mode blue/green highlights.
+                    const bool containsFractions =
+                        expression.get().find(FractionModel::emptyFraction().substr(0,3))
+                        != std::string::npos;
                     if (stepsMode) {
                         const auto result = calculateSteps(arithmeticInput, base);
                         if (!result.success) resultText = "= Blad: " + result.error;

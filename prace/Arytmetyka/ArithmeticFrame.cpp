@@ -99,6 +99,11 @@ void drawArithmeticFrame(ArithmeticDrawContext context)
     overlayHint.setFillColor(sf::Color(175,175,175));
     overlayHint.setPosition({690.f,94.f});
     window.draw(overlayHint);
+    sf::Text shortcutHint(font,
+        "Skroty: ^ potega | Ctrl+/ ulamek | Ctrl+Shift+6 pierwiastek | Shift+7 log | F6/F7 K", 12);
+    shortcutHint.setFillColor(sf::Color(165,165,165));
+    shortcutHint.setPosition({20.f, 94.f});
+    window.draw(shortcutHint);
     expressionPanel.setKeyboardFocus(panelFocused && !editing);
     expressionPanel.draw(window, displayed);
     expressionPanel.drawHighlights(window, displayed,stepHighlights);

@@ -65,8 +65,8 @@ PowerVisual makePowerVisual(const std::string& line,const sf::Font& font,unsigne
     for(std::size_t i=0;i<n;++i) {
         v.x[i]=advance;
         const int level=depth[i];
-        v.size[i]=level==0?normalSize:(level==1?std::max(12u,normalSize*72/100):std::max(10u,normalSize*54/100));
-        v.rise[i]=level==0?0.f:(level==1?12.f:22.f);
+        v.size[i]=level==0?normalSize:(level==1?std::max(12u,normalSize*66/100):std::max(10u,normalSize*45/100));
+        v.rise[i]=level==0?0.f:(level==1?9.f:16.f);
         if(s[i]==U'^') continue;
         sf::Text glyph(font,sf::String(bracketGlyph(s[i])),v.size[i]);
         advance+=font.getGlyph(bracketGlyph(s[i]),v.size[i],false).advance;
@@ -78,8 +78,8 @@ PowerVisual makePowerVisual(const std::string& line,const sf::Font& font,unsigne
     // Cursor after '^' belongs to the newly opened exponent, including empty ones.
     for(const auto& exponent:v.exponents) {
         if(exponent.start<=n) {
-            v.caretRise[exponent.start]=exponent.level==2?22.f:12.f;
-            v.size[exponent.start]=exponent.level==2?std::max(10u,normalSize*54/100):std::max(12u,normalSize*72/100);
+            v.caretRise[exponent.start]=exponent.level==2?16.f:9.f;
+            v.size[exponent.start]=exponent.level==2?std::max(10u,normalSize*45/100):std::max(12u,normalSize*66/100);
         }
     }
     // Pozycja tuz za ostatnim znakiem wykladnika nalezy jeszcze do
@@ -88,7 +88,7 @@ PowerVisual makePowerVisual(const std::string& line,const sf::Font& font,unsigne
     // Dla zagniezdzen wybieramy najglebszy indeks konczacy sie tutaj.
     for (const auto& exponent : v.exponents) {
         if (exponent.end > exponent.start && exponent.end <= n) {
-            const float exponentRise = exponent.level == 2 ? 22.f : 12.f;
+            const float exponentRise = exponent.level == 2 ? 16.f : 9.f;
             if (v.caretRise[exponent.end] < exponentRise)
                 v.caretRise[exponent.end] = exponentRise;
         }

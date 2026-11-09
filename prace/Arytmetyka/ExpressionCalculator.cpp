@@ -20,7 +20,12 @@ struct Parser {
     }
     bool implicitStart() {
         spaces();
-        return p < s.size() && ExpressionSyntax::isOpeningBracket(s[p]);
+        if (p >= s.size()) return false;
+        if (ExpressionSyntax::isOpeningBracket(s[p])) return true;
+        // A function is an atomic factor: 2root(...), root(...)3, 2log(...)5.
+        if (s.compare(p, 5, "root(") == 0 || s.compare(p, 4, "log(") == 0) return true;
+        // Adjacent number following a completed structure also multiplies.
+        return std::isdigit(static_cast<unsigned char>(s[p]));
     }
     double primary() {
         spaces();

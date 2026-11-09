@@ -21,7 +21,7 @@ StepCalculation calculateSteps(const std::string& expression,int base) {
         output.success=true;
         std::string previous=expression;
         for(int i=0;i<256;++i) {
-            simplify(tree);
+            simplify(tree, base);
             const Node* oldTarget=nullptr;
             const Node* newTarget=nullptr;
             std::string replacementLiteral;
@@ -43,7 +43,7 @@ StepCalculation calculateSteps(const std::string& expression,int base) {
             // Keep a render with the replacement node marked, before removing
             // redundant grouping. The resulting text is rendered without those
             // groups, so locate the replacement by its full token there.
-            simplify(tree);
+            simplify(tree, base);
             const std::string current=render(*tree);
             if(current==previous || current==expression ||
                (!output.steps.empty() && output.steps.back()==current)) continue;
@@ -51,6 +51,9 @@ StepCalculation calculateSteps(const std::string& expression,int base) {
                 previous, current,
                 {before.first, before.second.first, before.second.second},
                 replacementLiteral);
+            mark.sourceRendering = before.first;
+            mark.renderedStart = before.second.first;
+            mark.renderedEnd = before.second.second;
             // The replacement node is unique even if its displayed number
             // appears elsewhere (e.g. 2+2×2). Mark that node directly,
             // instead of searching for the first matching number.

@@ -17,6 +17,10 @@ struct Span {
 std::string emptyFraction();
 std::vector<Span> spans(const std::string& expression);
 int nestingAt(const std::string& expression, std::size_t cursor);
+// Horizontal navigation: 1 <-> 2 <-> 3 <-> 6, 1 <- 4 <-> 5 -> 6.
+// Returns true only when a fraction boundary needs special handling.
+bool horizontalFieldCursor(const std::string& expression, std::size_t cursor,
+                           bool right, std::size_t& destination);
 // Move between numerator and denominator of the innermost fraction.
 // Returns false when no matching fraction field is active.
 bool verticalFieldCursor(const std::string& expression, std::size_t cursor,

@@ -57,14 +57,14 @@ Piece measure(const sf::String& chars, std::size_t& at, const sf::Font& font,
             result.below = std::max(result.below, size * .25f);
         } else if (ch == FractionModel::Begin && depth < 2) {
             ++at;
-            const auto top = measure(chars, at, font, std::max(12u,size*3/4), depth+1, true);
+            const auto top = measure(chars, at, font, std::max(12u,size*2/3), depth+1, true);
             if (at < chars.getSize() && chars[at] == FractionModel::Separator) ++at;
-            const auto bottom = measure(chars, at, font, std::max(12u,size*3/4), depth+1, true);
+            const auto bottom = measure(chars, at, font, std::max(12u,size*2/3), depth+1, true);
             if (at < chars.getSize() && chars[at] == FractionModel::End) ++at;
             const auto geom = layoutFraction(top.width, bottom.width, static_cast<float>(size), 6.f);
             result.width += geom.width;
-            result.above = std::max(result.above, top.above + top.below + 8.f + size*0.55f);
-            result.below = std::max(result.below, bottom.above + bottom.below + 8.f + size*0.55f);
+            result.above = std::max(result.above, top.above + top.below + 3.f + size*0.35f);
+            result.below = std::max(result.below, bottom.above + bottom.below + 3.f + size*0.35f);
         } else {
             result.width += font.getGlyph(ch==U'<' || ch==U'>' ? U'|' : ch, size, false).advance;
             result.above = std::max(result.above, size*0.8f);
@@ -132,7 +132,7 @@ void paint(sf::RenderWindow& window, const sf::String& chars, std::size_t& at,
         } else if (ch == FractionModel::Begin && depth < 2) {
             const std::size_t start = ++at;
             auto probe = at;
-            const unsigned smaller = std::max(12u,size*3/4);
+            const unsigned smaller = std::max(12u,size*2/3);
             const auto top = measure(chars, probe, font, smaller, depth+1, true);
             const std::size_t separator = probe;
             if (probe < chars.getSize() && chars[probe] == FractionModel::Separator) ++probe;
@@ -145,12 +145,12 @@ void paint(sf::RenderWindow& window, const sf::String& chars, std::size_t& at,
             float topX = x + (geom.width-top.width)/2.f;
             at = start;
             paint(window, chars, at, font, smaller, depth+1, topX,
-                  barY - 9.f - top.below, color, true);
+                  barY - 3.f - top.below, color, true);
             float bottomX = x + (geom.width-bottom.width)/2.f;
             at = separator;
             if (at < chars.getSize() && chars[at] == FractionModel::Separator) ++at;
             paint(window, chars, at, font, smaller, depth+1, bottomX,
-                  barY + 9.f + bottom.above, color, true);
+                  barY + 3.f + bottom.above, color, true);
             at = finish;
             if (at < chars.getSize() && chars[at] == FractionModel::End) ++at;
             x += geom.width;
@@ -234,7 +234,7 @@ void locateCaret(const sf::String& chars, std::size_t& at, const sf::Font& font,
         } else if (ch == FractionModel::Begin && depth < 2) {
             const std::size_t begin = ++at;
             auto probe = at;
-            const unsigned smaller = std::max(12u, size * 3 / 4);
+            const unsigned smaller = std::max(12u, size * 2 / 3);
             const auto top = measure(chars, probe, font, smaller, depth + 1, true);
             const std::size_t separator = probe;
             if (probe < chars.getSize() && chars[probe] == FractionModel::Separator) ++probe;
@@ -245,16 +245,16 @@ void locateCaret(const sf::String& chars, std::size_t& at, const sf::Font& font,
             float topX = x + (geom.width - top.width) / 2.f;
             at = begin;
             locateCaret(chars, at, font, smaller, depth + 1, topX,
-                        barY - 9.f - top.below, true, positions);
+                        barY - 3.f - top.below, true, positions);
             // Pozycja przed separatorem jest koncem licznika.
-            positions[separator] = {topX, barY - 9.f - top.below - smaller * 0.8f};
+            positions[separator] = {topX, barY - 3.f - top.below - smaller * 0.8f};
             float bottomX = x + (geom.width - bottom.width) / 2.f;
             at = separator;
             if (at < chars.getSize() && chars[at] == FractionModel::Separator) ++at;
-            positions[at] = {bottomX, barY + 9.f + bottom.above - smaller * 0.8f};
+            positions[at] = {bottomX, barY + 3.f + bottom.above - smaller * 0.8f};
             locateCaret(chars, at, font, smaller, depth + 1, bottomX,
-                        barY + 9.f + bottom.above, true, positions);
-            positions[finish] = {bottomX, barY + 9.f + bottom.above - smaller * 0.8f};
+                        barY + 3.f + bottom.above, true, positions);
+            positions[finish] = {bottomX, barY + 3.f + bottom.above - smaller * 0.8f};
             at = finish;
             if (at < chars.getSize() && chars[at] == FractionModel::End) ++at;
             x += geom.width;

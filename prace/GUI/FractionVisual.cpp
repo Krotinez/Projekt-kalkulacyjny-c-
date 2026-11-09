@@ -6,12 +6,12 @@ FractionGeometry layoutFraction(float numeratorWidth, float denominatorWidth,
     FractionGeometry result;
     const float content = std::max({numeratorWidth, denominatorWidth, 18.f});
     result.width = content + 2.f * padding;
-    result.height = 2.f * fontLineHeight + 12.f;
+    result.height = 1.4f * fontLineHeight + 1.f;
     result.numeratorX = (result.width - numeratorWidth) * 0.5f;
     result.numeratorY = 0.f;
-    result.barY = fontLineHeight + 4.f;
+    result.barY = fontLineHeight + 1.f;
     result.denominatorX = (result.width - denominatorWidth) * 0.5f;
-    result.denominatorY = fontLineHeight + 10.f;
+    result.denominatorY = fontLineHeight + 2.f;
     return result;
 }
 

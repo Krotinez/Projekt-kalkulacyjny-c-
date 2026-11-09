@@ -21,7 +21,8 @@ void handleExpressionText(const sf::Event::TextEntered& entered,
                     unicode == '(' || unicode == ')' ||
                     unicode == '[' || unicode == ']' ||
                     unicode == '{' || unicode == '}' ||
-                    unicode == '.' || unicode == ',') {
+                    unicode == '.' || unicode == ',' || unicode == '%' || unicode == '!' ||
+                    unicode == '<' || unicode == '>' || unicode == '=') {
                     char c = static_cast<char>(unicode);
                     if (c == '.') c = ',';
 
@@ -32,6 +33,7 @@ void handleExpressionText(const sf::Event::TextEntered& entered,
 
                     std::string znak(1, c);
 
+                    if (c == '=') return; // Calculating is dispatched by the key handler.
                     if (NumberSystems::digitAllowed(znak, context.currentSystem))
                     {
                         if (c == '^' && context.interaction.editing) {
@@ -60,6 +62,21 @@ void handleExpressionText(const sf::Event::TextEntered& entered,
                                 chars[at-1] == U'*' || chars[at-1] == U'/' ||
                                 chars[at-1] == U'(' || chars[at-1] == U'[' || chars[at-1] == U'{')
                                 context.expression.add("1");
+                        }
+                        // A repeated decimal separator/operator replaces the previous one.
+                        // Preserve valid unary minus, e.g. 5+-2 or 2^-3.
+                        if (!context.expression.hasSelection()) {
+                            const auto old = context.expression.get();
+                            const auto chars = sf::String::fromUtf8(old.begin(), old.end());
+                            const auto at = context.expression.cursor();
+                            if (at > 0) {
+                                const char32_t prev = chars[at - 1];
+                                const bool decimal = c == ',' && (prev == U',' || prev == U'.');
+                                const auto op = [](char32_t v) { return v == U'+' || v == U'-' || v == U'*' || v == U'/'; };
+                                const bool replaceOp = op(c) && op(prev) &&
+                                    !(c == '-' && (prev == U'+' || prev == U'*' || prev == U'/'));
+                                if (decimal || replaceOp) context.expression.removeLast();
+                            }
                         }
                         context.expression.add(znak);
                     }

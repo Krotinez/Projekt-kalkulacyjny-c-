@@ -42,6 +42,35 @@ int nestingAt(const std::string& expression, std::size_t cursor) {
         if (span.begin < cursor && cursor <= span.end) depth = std::max(depth, span.level);
     return depth;
 }
+bool horizontalFieldCursor(const std::string& expression, std::size_t cursor,
+                           bool right, std::size_t& destination) {
+    const auto all = spans(expression);
+    const Span* selected = nullptr;
+    std::size_t target = cursor;
+    // Innermost matching fraction wins when structures are nested.
+    for (const auto& f : all) {
+        bool matched = true;
+        std::size_t next = cursor;
+        if (right) {
+            if (cursor == f.begin) next = f.begin + 1;          // 1 -> 2
+            else if (cursor == f.separator) next = f.end + 1;  // 3 -> 6
+            else if (cursor == f.end) next = f.end + 1;        // 5 -> 6
+            else matched = false;
+        } else {
+            if (cursor == f.begin + 1) next = f.begin;        // 2 -> 1
+            else if (cursor == f.separator + 1) next = f.begin; // 4 -> 1
+            else if (cursor == f.end + 1) next = f.separator; // 6 -> 3
+            else matched = false;
+        }
+        if (matched && (!selected || f.level > selected->level)) {
+            selected = &f;
+            target = next;
+        }
+    }
+    if (!selected) return false;
+    destination = target;
+    return true;
+}
 bool verticalFieldCursor(const std::string& expression, std::size_t cursor,
                          bool down, std::size_t& destination) {
     const auto all = spans(expression);

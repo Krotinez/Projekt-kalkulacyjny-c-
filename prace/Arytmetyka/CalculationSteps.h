@@ -3,6 +3,8 @@
 #include <vector>
 
 struct StepMark {
+    std::string sourceRendering;
+    std::size_t renderedStart = 0, renderedEnd = 0;
     std::size_t sourceStart = 0, sourceEnd = 0;
     std::size_t resultStart = 0, resultEnd = 0;
 };

@@ -17,7 +17,7 @@ LogGeometry layoutLog(const sf::Font& font, unsigned textSize,
     g.labelBaseline = normalHeight;
     g.basePosition = {labelWidth + 1.f, normalHeight - smallHeight * 0.45f};
     g.argumentPosition = {labelWidth + baseFieldWidth + p * 2.f, 0.f};
-    g.width = g.argumentPosition.x + argumentFieldWidth;
+    g.width = g.argumentPosition.x + argumentFieldWidth + std::max(4.f, p);
     g.height = std::max(argumentFieldHeight, g.basePosition.y + smallHeight);
     return g;
 }

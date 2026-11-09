@@ -40,6 +40,44 @@ std::vector<ExpressionPanel::VisualLine> ExpressionPanel::visualLines(const std:
     }
     return result;
 }
+float ExpressionPanel::rowHeight(const VisualLine& row) const
+{
+    const auto points = fractionCaretPositions(row.text, font, 28);
+    float low = 0.f, high = 30.f;
+    for (const auto& p : points) {
+        low = std::min(low, p.y);
+        high = std::max(high, p.y + 30.f);
+    }
+    return std::max(lineHeight, high - low + 8.f);
+}
+float ExpressionPanel::rowTop(const VisualLine& row) const
+{
+    const auto points = fractionCaretPositions(row.text, font, 28);
+    float low = 0.f;
+    for (const auto& p : points) low = std::min(low, p.y);
+    return std::max(0.f, -low + 4.f);
+}
+float ExpressionPanel::rowOffset(const std::vector<VisualLine>& rows, std::size_t index) const
+{
+    float y = 0.f;
+    for (std::size_t i = 0; i < index && i < rows.size(); ++i)
+        y += rowHeight(rows[i]);
+    return y;
+}
+float ExpressionPanel::contentHeight(const std::vector<VisualLine>& rows) const
+{
+    return rowOffset(rows, rows.size());
+}
+std::size_t ExpressionPanel::rowAtY(const std::vector<VisualLine>& rows, float y) const
+{
+    if (rows.empty()) return 0;
+    float top = 0.f;
+    for (std::size_t i = 0; i + 1 < rows.size(); ++i) {
+        top += rowHeight(rows[i]);
+        if (y < top) return i;
+    }
+    return rows.size() - 1;
+}
 std::vector<std::string> ExpressionPanel::lines(const std::string& expression) const
 {
     std::vector<std::string> result;
@@ -68,9 +106,8 @@ bool ExpressionPanel::isWrapBoundary(const std::string& expression, std::size_t 
 void ExpressionPanel::setWrapSideFromClick(sf::Vector2f pos, const std::string& expression, std::size_t cursor)
 {
     const auto rows = visualLines(expression);
-    const int index = std::clamp(static_cast<int>(std::floor(
-        (pos.y - box.getPosition().y - padding + scroll.offsetY) / lineHeight)),
-        0, static_cast<int>(rows.size()) - 1);
+    const std::size_t index = rowAtY(rows,
+        pos.y - box.getPosition().y - padding + scroll.offsetY);
     endOfPreviousLine = index + 1 < static_cast<int>(rows.size()) &&
         rows[index].end == cursor && rows[index+1].start == cursor;
 }
@@ -148,18 +185,18 @@ void ExpressionPanel::ensureCursorVisible(const std::string& expression, std::si
     const auto index = rowForCursor(rows, cursor);
     const float availableHeight = box.getSize().y - 2.f * padding;
     const float availableWidth = box.getSize().x - 2.f * padding;
-    const float y = static_cast<float>(index) * lineHeight;
+    const float y = rowOffset(rows, index);
     const float x = cursorX(rows[index], cursor);
     if (y < scroll.offsetY) scroll.offsetY = y;
-    if (y + lineHeight > scroll.offsetY + availableHeight)
-        scroll.offsetY = y + lineHeight - availableHeight;
+    if (y + rowHeight(rows[index]) > scroll.offsetY + availableHeight)
+        scroll.offsetY = y + rowHeight(rows[index]) - availableHeight;
     if (x < scroll.offsetX) scroll.offsetX = x;
     if (x + 5.f > scroll.offsetX + availableWidth)
         scroll.offsetX = x + 5.f - availableWidth;
     float widest = 0.f;
     for (const auto& row : rows) widest = std::max(widest, getTextWidth(row.text, font, 28));
     setExpressionScroll(scroll, scroll.offsetX, scroll.offsetY,
-        calculateMaxScrollX(widest, availableWidth), maxY(rows.size()));
+        calculateMaxScrollX(widest, availableWidth), std::max(0.f, contentHeight(rows) - availableHeight));
 }
 float ExpressionPanel::maxY(std::size_t count) const
 {
@@ -172,7 +209,7 @@ float ExpressionPanel::maxX(const std::vector<std::string>& wrapped) const
 void ExpressionPanel::scrollToBottom(const std::string& expression)
 {
     const auto wrapped = lines(expression);
-    scroll.offsetY = maxY(wrapped.size());
+    scroll.offsetY = std::max(0.f, contentHeight(visualLines(expression)) - (box.getSize().y - 2.f * padding));
     scroll.offsetX = 0.f;
 }
 void ExpressionPanel::resetScroll()
@@ -185,7 +222,7 @@ void ExpressionPanel::handleEvent(const sf::Event& event, sf::Vector2f mousePos,
     if (const auto* wheel = event.getIf<sf::Event::MouseWheelScrolled>())
     {
         if (wheel->wheel == sf::Mouse::Wheel::Vertical)
-            scrollExpressionWithWheel(scroll, wheel->delta, wheelSpeed, maxY(lines(expression).size()));
+            scrollExpressionWithWheel(scroll, wheel->delta, wheelSpeed, std::max(0.f, contentHeight(visualLines(expression)) - (box.getSize().y - 2.f * padding)));
     }
     if (const auto* pressed = event.getIf<sf::Event::MouseButtonPressed>())
     {
@@ -193,7 +230,7 @@ void ExpressionPanel::handleEvent(const sf::Event& event, sf::Vector2f mousePos,
         {
             const auto wrapped = lines(expression);
             beginExpressionScrollbarDrag(scroll, mousePos, {box.getPosition(), box.getSize()},
-                scrollbarPadding, scrollbarWidth, horizontalHeight, maxY(wrapped.size()), maxX(wrapped));
+                scrollbarPadding, scrollbarWidth, horizontalHeight, std::max(0.f, contentHeight(visualLines(expression)) - (box.getSize().y - 2.f * padding)), maxX(wrapped));
         }
     }
     if (const auto* released = event.getIf<sf::Event::MouseButtonReleased>())
@@ -208,7 +245,7 @@ void ExpressionPanel::handleEvent(const sf::Event& event, sf::Vector2f mousePos,
             const auto wrapped = lines(expression);
             if (scroll.draggingY)
                 updateExpressionVerticalDrag(scroll, static_cast<float>(moved->position.y),
-                    {box.getPosition(), box.getSize()}, maxY(wrapped.size()));
+                    {box.getPosition(), box.getSize()}, std::max(0.f, contentHeight(visualLines(expression)) - (box.getSize().y - 2.f * padding)));
             if (scroll.draggingX)
                 updateHorizontalScrollbarDrag(scroll, static_cast<float>(moved->position.x),
                     box.getPosition().x, box.getSize().x, maxX(wrapped));
@@ -220,7 +257,8 @@ void ExpressionPanel::draw(sf::RenderWindow& window, const std::string& expressi
     const auto wrapped = lines(expression);
     const float availableWidth = box.getSize().x - 2.f * padding;
     const auto prepared = prepareExpressionLines(wrapped, availableWidth, font, 28);
-    const float scrollY = maxY(prepared.size());
+    const auto rows = visualLines(expression);
+    const float scrollY = std::max(0.f, contentHeight(rows) - (box.getSize().y - 2.f * padding));
     float contentWidth = 0.f;
     for (const auto& line : prepared)
         contentWidth = std::max(contentWidth, line.width);
@@ -234,9 +272,14 @@ void ExpressionPanel::draw(sf::RenderWindow& window, const std::string& expressi
     text.setFillColor(sf::Color::White);
     const sf::View previousView = window.getView();
     window.setView(createExpressionView(window, {box.getPosition(), box.getSize()}));
-    drawExpressionLines(window, text, prepared,
-        box.getPosition().x + padding, box.getPosition().y + padding,
-        lineHeight, box.getPosition().y + box.getSize().y, scroll);
+    for (std::size_t i = 0; i < prepared.size() && i < rows.size(); ++i) {
+        const float y = box.getPosition().y + padding +
+            rowOffset(rows, i) + rowTop(rows[i]) - scroll.offsetY;
+        if (y < box.getPosition().y + box.getSize().y &&
+            y + rowHeight(rows[i]) > box.getPosition().y)
+            drawExpressionLine(window, text, prepared[i].text,
+                box.getPosition().x + padding - scroll.offsetX, y);
+    }
     window.setView(previousView);
 
     drawVerticalScrollbar(window, box.getPosition().x + box.getSize().x + scrollbarPadding,
@@ -257,12 +300,30 @@ bool ExpressionPanel::contains(sf::Vector2f pos) const {
 std::size_t ExpressionPanel::cursorAt(sf::Vector2f pos, const std::string& expression) const
 {
     const auto rows = visualLines(expression);
-    const int index = std::clamp(static_cast<int>(std::floor(
-        (pos.y - box.getPosition().y - padding + scroll.offsetY) / lineHeight)),
-        0, static_cast<int>(rows.size()) - 1);
+    const std::size_t index = rowAtY(rows,
+        pos.y - box.getPosition().y - padding + scroll.offsetY);
     const auto& row = rows[index];
     const float localX = pos.x - box.getPosition().x - padding + scroll.offsetX;
-    const float localY = pos.y - box.getPosition().y - padding + scroll.offsetY - index * lineHeight;
+    const float localY = pos.y - box.getPosition().y - padding + scroll.offsetY -
+        rowOffset(rows, index) - rowTop(row);
+    // Graphical structures have their own two-dimensional caret positions.
+    // The same geometry is already used to draw the editing caret.
+    const auto structured = fractionCaretPositions(row.text, font, 28);
+    if (!FractionModel::spans(row.text).empty() ||
+        row.text.find(RootModel::emptyRoot().substr(0,3)) != std::string::npos ||
+        row.text.find(LogModel::emptyLog().substr(0,3)) != std::string::npos)
+    {
+        const auto count = std::min(row.end - row.start + 1, structured.size());
+        float best = 1e30f;
+        std::size_t nearest = 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            const float dx = structured[i].x - localX;
+            const float dy = (structured[i].y + 12.f) - localY;
+            const float distance = dx * dx + dy * dy;
+            if (distance < best) { best = distance; nearest = i; }
+        }
+        return row.start + nearest;
+    }
     if (row.text.find('^') == std::string::npos)
         return cursorAtX(row, localX);
 
@@ -292,16 +353,60 @@ void ExpressionPanel::drawEditor(sf::RenderWindow& window, const std::string& ex
     for (std::size_t index = 0; index < rows.size(); ++index)
     {
         const auto& row = rows[index];
-        const float y = box.getPosition().y + padding + index * lineHeight - scroll.offsetY;
+        const float y = box.getPosition().y + padding + rowOffset(rows, index) + rowTop(row) - scroll.offsetY;
         const float x = box.getPosition().x + padding - scroll.offsetX;
         if (selectionStart < row.end && selectionEnd > row.start)
         {
-            const float a = cursorX(row, std::max(selectionStart, row.start));
-            const float b = cursorX(row, std::min(selectionEnd, row.end));
-            sf::RectangleShape highlight({std::max(0.f, b-a), 32.f});
-            highlight.setPosition({x+a, y});
-            highlight.setFillColor(sf::Color(50, 110, 210, 130));
-            window.draw(highlight);
+            const auto start = std::max(selectionStart, row.start) - row.start;
+            const auto end = std::min(selectionEnd, row.end) - row.start;
+            const bool structured = !FractionModel::spans(row.text).empty() ||
+                row.text.find(RootModel::emptyRoot().substr(0,3)) != std::string::npos ||
+                row.text.find(LogModel::emptyLog().substr(0,3)) != std::string::npos;
+            if (structured) {
+                const auto positions = fractionCaretPositions(row.text, font, 28);
+                // Draw the selection per visible segment, rather than as one
+                // horizontal rectangle across different fraction/root levels.
+                // The visible "log" label has no ordinary text characters:
+                // it is rendered from the LogModel::Begin marker. Highlight it
+                // when the complete logarithm is selected, including its end.
+                const sf::String chars = sf::String::fromUtf8(row.text.begin(), row.text.end());
+                std::vector<std::size_t> logStack;
+                for (std::size_t j = 0; j < chars.getSize(); ++j) {
+                    if (chars[j] == LogModel::Begin) {
+                        logStack.push_back(j);
+                    } else if (chars[j] == LogModel::End && !logStack.empty()) {
+                        const std::size_t begin = logStack.back();
+                        logStack.pop_back();
+                        if (begin < start || j >= end || begin + 1 >= positions.size())
+                            continue;
+                        const float width = positions[begin + 1].x - positions[begin].x;
+                        if (width <= 0.f) continue;
+                        sf::RectangleShape labelHighlight({width, 30.f});
+                        labelHighlight.setPosition({x + positions[begin].x,
+                            y + positions[begin].y});
+                        labelHighlight.setFillColor(sf::Color(50, 110, 210, 130));
+                        window.draw(labelHighlight);
+                    }
+                }
+                for (std::size_t j = start; j < end && j + 1 < positions.size(); ++j) {
+                    const auto a = positions[j];
+                    const auto b = positions[j + 1];
+                    const float dx = b.x - a.x;
+                    const float dy = b.y - a.y;
+                    if (dx <= 0.f || std::abs(dy) > 9.f) continue;
+                    sf::RectangleShape highlight({dx, 25.f});
+                    highlight.setPosition({x + a.x, y + a.y});
+                    highlight.setFillColor(sf::Color(50, 110, 210, 130));
+                    window.draw(highlight);
+                }
+            } else {
+                const float a = cursorX(row, std::max(selectionStart, row.start));
+                const float b = cursorX(row, std::min(selectionEnd, row.end));
+                sf::RectangleShape highlight({std::max(0.f, b-a), 32.f});
+                highlight.setPosition({x+a, y});
+                highlight.setFillColor(sf::Color(50, 110, 210, 130));
+                window.draw(highlight);
+            }
         }
         // Edytowalne pole wykladnika: aktywne jest niebieskie,
         // a puste pozostaje widoczne jako miejsce do wpisywania.
@@ -360,7 +465,7 @@ void ExpressionPanel::drawHighlights(sf::RenderWindow& window, const std::string
             if(h.start>=row.end || h.end<=row.start) continue;
             const auto a=std::max(row.start,h.start), b=std::min(row.end,h.end);
             const float x=box.getPosition().x+padding-scroll.offsetX;
-            const float y=box.getPosition().y+padding+i*lineHeight-scroll.offsetY;
+            const float y=box.getPosition().y+padding+rowOffset(rows,i)+rowTop(row)-scroll.offsetY;
             const sf::Color color = h.error ? sf::Color(210,55,55,230) :
                 h.result ? sf::Color(165,220,40,190) : sf::Color(45,110,220,115);
             const float inset = h.result ? 4.f : 0.f;
@@ -408,6 +513,40 @@ void ExpressionPanel::drawHighlights(sf::RenderWindow& window, const std::string
                 const PowerVisual power = hasPowers ? makePowerVisual(row.text, font, 28) : PowerVisual{};
                 const std::size_t first = a - row.start;
                 const std::size_t last = std::min(b - row.start, chars.getSize());
+                // In K mode a fully selected logarithm is one rectangular
+                // highlight, including its label, argument and lowered base.
+                // Partially selected logarithms keep the regular glyph marks.
+                struct LogSelection { std::size_t begin, end; };
+                std::vector<LogSelection> wholeLogs;
+                std::vector<std::size_t> logBegins;
+                for (std::size_t j = 0; j < chars.getSize(); ++j) {
+                    if (chars[j] == LogModel::Begin) logBegins.push_back(j);
+                    else if (chars[j] == LogModel::End && !logBegins.empty()) {
+                        const std::size_t begin = logBegins.back();
+                        logBegins.pop_back();
+                        if (begin < first || j >= last || j + 1 >= positions.size()) continue;
+                        float minX = positions[begin].x, maxX = positions[j+1].x;
+                        float minY = 0.f, maxY = 32.f;
+                        for (std::size_t k = begin; k <= j + 1; ++k) {
+                            minX = std::min(minX, positions[k].x);
+                            maxX = std::max(maxX, positions[k].x);
+                            minY = std::min(minY, positions[k].y);
+                            maxY = std::max(maxY, positions[k].y + 26.f);
+                        }
+                        if (maxX > minX) {
+                            sf::RectangleShape whole({maxX-minX+3.f, maxY-minY+3.f});
+                            whole.setPosition({x+minX-1.f,y+minY-1.f});
+                            whole.setFillColor(color);
+                            window.draw(whole);
+                            wholeLogs.push_back({begin,j});
+                        }
+                    }
+                }
+                const auto coveredByWholeLog = [&](std::size_t pos) {
+                    for (const auto& log : wholeLogs)
+                        if (pos >= log.begin && pos <= log.end) return true;
+                    return false;
+                };
                 // Include the non-text parts of a fully selected structure.
                 // The editor stores these as invisible Unicode markers; their
                 // visible symbols need their own highlight geometry.
@@ -433,6 +572,7 @@ void ExpressionPanel::drawHighlights(sf::RenderWindow& window, const std::string
                     if (ch != ending) continue;
                     const auto structure = current;
                     openStructures.pop_back();
+                    if (structure.kind == LogModel::Begin && coveredByWholeLog(structure.begin)) continue;
                     if (structure.begin < first || j >= last ||
                         structure.separator >= chars.getSize() ||
                         structure.separator <= structure.begin ||
@@ -468,6 +608,7 @@ void ExpressionPanel::drawHighlights(sf::RenderWindow& window, const std::string
                     window.draw(symbolMark);
                 }
                 for (std::size_t j = first; j < last && j + 1 < positions.size(); ++j) {
+                    if (coveredByWholeLog(j)) continue;
                     const char32_t ch = chars[j];
                     const bool structural = ch == FractionModel::Begin || ch == FractionModel::Separator ||
                         ch == FractionModel::End || ch == RootModel::Begin ||

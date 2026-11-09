@@ -31,6 +31,14 @@ void Expression::add(const std::string& text) {
     sf::String inserted = sf::String::fromUtf8(text.begin(), text.end());
     if (inserted.isEmpty()) return;
     save(); eraseSelection();
+    // A power is an explicit editable field. Its closing parenthesis is
+    // present from the start, so digits entered after exiting cannot extend it.
+    if (inserted.getSize() == 1 && inserted[0] == U'^') {
+        value.insert(caret, sf::String("^()"));
+        caret += 2; // immediately before the closing parenthesis
+        anchor = caret;
+        return;
+    }
     // Reguly wpisywania operatorow i przecinka dotycza pojedynczych znakow.
     if (inserted.getSize() == 1) {
         const char32_t c = inserted[0];
@@ -42,6 +50,23 @@ void Expression::add(const std::string& text) {
                              value[caret - 1] == U'(' || value[caret - 1] == U'[' ||
                              value[caret - 1] == U'{';
         if (c == U',' || c == U'.') {
+            // A decimal separator is unique within a numeric literal. If the
+            // immediately preceding character is a separator, replace it;
+            // if the literal already has one, ignore the new separator.
+            if (caret > 0 && (value[caret - 1] == U',' || value[caret - 1] == U'.')) {
+                value.erase(caret - 1, 1);
+                --caret;
+            } else {
+                std::size_t begin = caret;
+                while (begin > 0 && ((value[begin - 1] >= U'0' && value[begin - 1] <= U'9') ||
+                       value[begin - 1] == U',' || value[begin - 1] == U'.')) --begin;
+                for (std::size_t i = begin; i < caret; ++i) {
+                    if (value[i] == U',' || value[i] == U'.') {
+                        anchor = caret;
+                        return;
+                    }
+                }
+            }
             if (atStart || (caret > 0 && isOperator(value[caret - 1]))) {
                 value.insert(caret, sf::String("0")); ++caret;
             }
@@ -83,17 +108,85 @@ void Expression::add(const std::string& text) {
     value.insert(caret, inserted);
     caret += inserted.getSize(); anchor = caret;
 }
+// Structure-aware editing: a field boundary must never be removed as an
+// ordinary character. Empty mathematical objects are removed atomically.
+namespace {
+bool isBegin(char32_t c) {
+    return c == U'\uE100' || c == U'\uE110' || c == U'\uE120';
+}
+bool isSeparator(char32_t c) {
+    return c == U'\uE101' || c == U'\uE111' || c == U'\uE121';
+}
+bool isPowerBoundary(const sf::String& value, std::size_t index) {
+    if (index >= value.getSize()) return false;
+    if (value[index] == U'^' && index + 1 < value.getSize() && value[index+1] == U'(') return true;
+    if (value[index] == U'(' && index > 0 && value[index-1] == U'^') return true;
+    if (value[index] != U')') return false;
+    // A closing bracket belongs to a power if its matching opening bracket
+    // immediately follows ^. Supports nested brackets in the exponent.
+    int depth = 0;
+    for (std::size_t i = index + 1; i > 0;) {
+        --i;
+        if (value[i] == U')') ++depth;
+        else if (value[i] == U'(') {
+            --depth;
+            if (depth == 0) return i > 0 && value[i-1] == U'^';
+        }
+    }
+    return false;
+}
+bool isEnd(char32_t c) {
+    return c == U'\uE102' || c == U'\uE112' || c == U'\uE122';
+}
+char32_t matchingEnd(char32_t begin) {
+    return begin == U'\uE100' ? U'\uE102' :
+           begin == U'\uE110' ? U'\uE112' : U'\uE122';
+}
+char32_t matchingSeparator(char32_t begin) {
+    return begin == U'\uE100' ? U'\uE101' :
+           begin == U'\uE110' ? U'\uE111' : U'\uE121';
+}
+// Locate a complete, empty fraction/root/log enclosing or adjacent to cursor.
+bool emptyStructureAt(const sf::String& value, std::size_t cursor,
+                      std::size_t& start, std::size_t& length) {
+    // Explicit empty power field ^() is one editable object.
+    for (std::size_t i = 0; i + 2 < value.getSize(); ++i) {
+        if (value[i] == U'^' && value[i+1] == U'(' && value[i+2] == U')' &&
+            cursor >= i && cursor <= i+3) {
+            start = i; length = 3; return true;
+        }
+    }
+    for (std::size_t i = 0; i + 2 < value.getSize(); ++i) {
+        if (!isBegin(value[i]) || value[i+1] != matchingSeparator(value[i]) ||
+            value[i+2] != matchingEnd(value[i])) continue;
+        if (cursor >= i && cursor <= i+3) { start = i; length = 3; return true; }
+    }
+    return false;
+}
+}
 void Expression::removeLast() {
-    if (!hasSelection() && caret == 0) return;
-    save();
-    if (hasSelection()) eraseSelection();
-    else { value.erase(caret - 1, 1); --caret; anchor = caret; }
+    if (hasSelection()) { save(); eraseSelection(); return; }
+    std::size_t start = 0, length = 0;
+    if (emptyStructureAt(value, caret, start, length) && caret > start) {
+        save(); value.erase(start, length); caret = anchor = start; return;
+    }
+    if (caret == 0) return;
+    // Never damage a populated structure by deleting a delimiter.
+    if (isBegin(value[caret-1]) || isSeparator(value[caret-1]) ||
+        isEnd(value[caret-1]) || isPowerBoundary(value, caret-1)) return;
+    save(); value.erase(caret-1, 1); --caret; anchor = caret;
 }
 void Expression::deleteForward() {
-    if (!hasSelection() && caret >= value.getSize()) return;
-    save();
-    if (hasSelection()) eraseSelection();
-    else value.erase(caret, 1);
+    if (hasSelection()) { save(); eraseSelection(); return; }
+    std::size_t start = 0, length = 0;
+    if (emptyStructureAt(value, caret, start, length)) {
+        save(); value.erase(start, length); caret = anchor = start; return;
+    }
+    if (caret >= value.getSize()) return;
+    // Preserve the boundaries of nonempty mathematical structures.
+    if (isBegin(value[caret]) || isSeparator(value[caret]) ||
+        isEnd(value[caret]) || isPowerBoundary(value, caret)) return;
+    save(); value.erase(caret, 1); anchor = caret;
 }
 void Expression::replaceForBaseConversion(const std::string& text, std::size_t newCursor, std::size_t newAnchor) {
     const auto converted=sf::String::fromUtf8(text.begin(),text.end());

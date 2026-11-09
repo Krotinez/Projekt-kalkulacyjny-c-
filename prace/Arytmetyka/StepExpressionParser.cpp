@@ -81,8 +81,27 @@ Ptr Parser::product() {
                 n = std::make_unique<Node>("×", std::move(n), unary());
             else if (op == ExpressionSyntax::BinaryOperator::Divide)
                 n = std::make_unique<Node>("÷", std::move(n), unary());
-            else if (bracket()) n = std::make_unique<Node>("×", std::move(n), unary());
-            else break;
+            else {
+                skip();
+                const bool nextStructure = bracket() ||
+                    s.compare(i, 5, "root(") == 0 || s.compare(i, 4, "log(") == 0;
+                // A numeral immediately following a completed root/logarithm
+                // means multiplication, just as a numeral before it does.
+                // Do not reinterpret adjacent ordinary digits as multiplication.
+                const bool nextNumber = i < s.size() &&
+                    (std::isdigit(static_cast<unsigned char>(s[i])) ||
+                     (base == 16 && std::isxdigit(static_cast<unsigned char>(s[i]))));
+                const auto endsInStructure = [](const Node* node) {
+                    while (node && node->op == "group") node = node->left.get();
+                    return node && (node->op == "root" || node->op == "log");
+                };
+                // A product can also end with a graphical structure.
+                const Node* tail = n.get();
+                while (tail && tail->op == "×") tail = tail->right.get();
+                if (nextStructure || (nextNumber && endsInStructure(tail)))
+                    n = std::make_unique<Node>("×", std::move(n), unary());
+                else break;
+            }
         }
         return n;
     }

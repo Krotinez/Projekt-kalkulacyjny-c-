@@ -1,6 +1,7 @@
 #include "LogModel.h"
 #include <SFML/System/String.hpp>
 #include <vector>
+#include <algorithm>
 #include <functional>
 namespace LogModel {
 std::string emptyLog() {
@@ -33,20 +34,47 @@ std::vector<Span> spans(const std::string& expression) {
     return result;
 }
 }
+// Main horizontal path: outside -> argument/radicand -> outside.
+// The first encoded field (degree/base) is accessible via Up/Down only.
 bool horizontalFieldCursor(const std::string& expression, std::size_t cursor,
                            bool right, std::size_t& target) {
     const auto all = spans(expression);
-    for (auto it = all.rbegin(); it != all.rend(); ++it) {
-        if (right && cursor == it->separator) {
-            target = it->separator + 1;
-            return true;
+    const Span* selected = nullptr;
+    for (const auto& s : all) {
+        const auto length = sf::String::fromUtf8(expression.begin(), expression.end()).getSize();
+        if (s.end >= length) continue;
+        bool matched = false;
+        std::size_t next = cursor;
+        if (right) {
+            if (cursor == s.begin) { next = s.separator + 1; matched = true; }
+            else if (cursor == s.separator || cursor == s.end) { next = s.end + 1; matched = true; }
+        } else {
+            if (cursor == s.separator + 1 || cursor == s.begin + 1) { next = s.begin; matched = true; }
+            else if (cursor == s.end + 1) { next = s.end; matched = true; }
         }
-        if (!right && cursor == it->separator + 1) {
-            target = it->separator;
-            return true;
-        }
+        if (matched && (!selected || s.begin >= selected->begin)) { selected = &s; target = next; }
     }
-    return false;
+    return selected != nullptr;
+}
+bool verticalFieldCursor(const std::string& expression, std::size_t cursor,
+                         bool down, std::size_t& target) {
+    const auto all = spans(expression);
+    const Span* selected = nullptr;
+    for (const auto& s : all) {
+        const auto length = sf::String::fromUtf8(expression.begin(), expression.end()).getSize();
+        if (s.end >= length) continue;
+        const bool degree = cursor > s.begin && cursor <= s.separator;
+        const bool argument = cursor > s.separator && cursor <= s.end;
+        // Down: argument -> base. Up: base -> argument.
+        if (((down && argument) || (!down && degree)) &&
+            (!selected || s.begin >= selected->begin)) selected = &s;
+    }
+    if (!selected) return false;
+    const std::size_t source = down ? selected->separator + 1 : selected->begin + 1;
+    const std::size_t destination = down ? selected->begin + 1 : selected->separator + 1;
+    const std::size_t last = down ? selected->separator : selected->end;
+    target = std::min(destination + (cursor - source), last);
+    return true;
 }
 bool inBase(const std::string& expression, std::size_t cursor) {
     for (const auto& span : spans(expression)) {

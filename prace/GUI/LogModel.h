@@ -8,6 +8,8 @@ constexpr char32_t End = U'\uE122';
 std::string emptyLog();
 bool toArithmetic(const std::string& expression, std::string& arithmetic);
 // Cursor offsets count Unicode code points.
+bool verticalFieldCursor(const std::string& expression, std::size_t cursor,
+                         bool down, std::size_t& target);
 bool horizontalFieldCursor(const std::string& expression, std::size_t cursor,
                            bool right, std::size_t& target);
 bool inBase(const std::string& expression, std::size_t cursor);

@@ -29,6 +29,17 @@ void handleExpressionKey(sf::Keyboard::Key key, bool ctrl, bool shift,
     else if (ctrl && key == sf::Keyboard::Key::Y) expression.redo();
     else if (key == sf::Keyboard::Key::Left || key == sf::Keyboard::Key::Right) {
         const bool right = key == sf::Keyboard::Key::Right;
+        // The fraction has six logical caret positions:
+        // 1 <-> 2 <-> 3 <-> 6 and 1 <- 4 <-> 5 -> 6.
+        // Only Up/Down can enter the denominator from the numerator.
+        std::size_t fractionTarget = 0;
+        if (!ctrl && !shift && FractionModel::horizontalFieldCursor(
+                expression.get(), expression.cursor(), right, fractionTarget)) {
+            expression.setCursor(fractionTarget);
+            expressionPanel.setWrapSide(right);
+            expressionPanel.ensureCursorVisible(expression.get(), expression.cursor());
+            return;
+        }
         std::size_t rootTarget = 0;
         if (!ctrl && !shift && LogModel::horizontalFieldCursor(
                 expression.get(), expression.cursor(), right, rootTarget)) {
@@ -49,19 +60,9 @@ void handleExpressionKey(sf::Keyboard::Key key, bool ctrl, bool shift,
         if (!ctrl && boundary && ((right && expressionPanel.wrapSideAtEnd()) || (!right && !expressionPanel.wrapSideAtEnd()))) {
             expressionPanel.setWrapSide(!right);
         } else {
-            // Na koncu wykladnika sa dwie pozycje kursora:
-            // wewnatrz indeksu i poza cala potega.
-            const bool atPowerEnd = !ctrl && !shift &&
-                expressionPanel.isPowerEnd(expression.get(), expression.cursor());
-            if (atPowerEnd && right && expressionPanel.powerExitSteps() <
-                expressionPanel.powerEndDepth(expression.get(), expression.cursor())) {
-                expressionPanel.setPowerExitSteps(expressionPanel.powerExitSteps() + 1);
-            } else if (atPowerEnd && !right && expressionPanel.powerExitSteps() > 0) {
-                expressionPanel.setPowerExitSteps(expressionPanel.powerExitSteps() - 1);
-            } else {
-                expression.moveHorizontal(right ? 1 : -1, ctrl, shift);
-                expressionPanel.setPowerOutsideAtEnd(false);
-            }
+            // Explicit ^(...) boundaries make every caret position unambiguous.
+            expression.moveHorizontal(right ? 1 : -1, ctrl, shift);
+            expressionPanel.setPowerOutsideAtEnd(false);
             expressionPanel.setWrapSide(right);
         }
         expressionPanel.ensureCursorVisible(expression.get(), expression.cursor());
@@ -70,7 +71,9 @@ void handleExpressionKey(sf::Keyboard::Key key, bool ctrl, bool shift,
         if (ctrl) expression.setCursor(expressionPanel.lineBoundary(expression.get(), expression.cursor(), false), shift);
         else {
             std::size_t fractionTarget = 0;
-            if (FractionModel::verticalFieldCursor(expression.get(), expression.cursor(), false, fractionTarget))
+            if (FractionModel::verticalFieldCursor(expression.get(), expression.cursor(), false, fractionTarget) ||
+                RootModel::verticalFieldCursor(expression.get(), expression.cursor(), false, fractionTarget) ||
+                LogModel::verticalFieldCursor(expression.get(), expression.cursor(), false, fractionTarget))
                 expression.setCursor(fractionTarget, shift);
             else expression.setCursor(expressionPanel.verticalCursor(expression.get(), expression.cursor(), -1), shift);
         }
@@ -78,8 +81,10 @@ void handleExpressionKey(sf::Keyboard::Key key, bool ctrl, bool shift,
     }
     else if (key == sf::Keyboard::Key::Down) {
         std::size_t fractionDownTarget = 0;
-        const bool fractionDown = !ctrl && FractionModel::verticalFieldCursor(
-            expression.get(), expression.cursor(), true, fractionDownTarget);
+        const bool fractionDown = !ctrl && (FractionModel::verticalFieldCursor(
+            expression.get(), expression.cursor(), true, fractionDownTarget) ||
+            RootModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionDownTarget) ||
+            LogModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionDownTarget));
         if (!fractionDown && !ctrl && !shift && !resultText.empty()) {
             const auto target=expressionPanel.verticalCursor(displayedExpression(),expression.cursor(),1);
             if(target>ArithmeticUI::codepoints(expression.get())) {
@@ -93,7 +98,9 @@ void handleExpressionKey(sf::Keyboard::Key key, bool ctrl, bool shift,
         if (ctrl) expression.setCursor(expressionPanel.lineBoundary(expression.get(), expression.cursor(), true), shift);
         else {
             std::size_t fractionTarget = 0;
-            if (FractionModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionTarget))
+            if (FractionModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionTarget) ||
+                RootModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionTarget) ||
+                LogModel::verticalFieldCursor(expression.get(), expression.cursor(), true, fractionTarget))
                 expression.setCursor(fractionTarget, shift);
             else expression.setCursor(expressionPanel.verticalCursor(expression.get(), expression.cursor(), 1), shift);
         }

@@ -45,6 +45,11 @@ private:
     struct VisualLine { std::string text; std::size_t start, end; };
     std::vector<VisualLine> visualLines(const std::string& expression) const;
     std::size_t rowForCursor(const std::vector<VisualLine>& rows, std::size_t cursor) const;
+    float rowHeight(const VisualLine& row) const;
+    float rowTop(const VisualLine& row) const;
+    float rowOffset(const std::vector<VisualLine>& rows, std::size_t index) const;
+    float contentHeight(const std::vector<VisualLine>& rows) const;
+    std::size_t rowAtY(const std::vector<VisualLine>& rows, float y) const;
     float cursorX(const VisualLine& row, std::size_t cursor) const;
     std::size_t cursorAtX(const VisualLine& row, float x) const;
     std::vector<std::string> lines(const std::string& expression) const;
